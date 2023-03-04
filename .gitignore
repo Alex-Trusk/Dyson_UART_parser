@@ -1,0 +1,4 @@
+# ignoring all debug files
+build/
+#ignoring docker
+.devcontainer/
