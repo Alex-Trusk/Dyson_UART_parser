@@ -1,7 +1,12 @@
 #ifndef DYSON_UART_H
 #define DYSON_UART_H
+
+//#define DYSON_TEST 1
 #include "stdint.h"
 #include "stddef.h"
+#ifdef DYSON_TEST
+    #include "TestDysonPackets.h"
+#endif
 #define START_BYTE 0x12
 #define STOP_BYTE 0x12
 #define STUFF_BYTE_1

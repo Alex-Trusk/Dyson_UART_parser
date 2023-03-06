@@ -15,10 +15,13 @@
 #include "driver/gpio.h"
 #include "../Includes/DysonUart.h"
 
+//#define DYSON_DEBUG
+
+
 static const int RX_BUF_SIZE = 1024;
 QueueHandle_t UartQueueHandle;
-#define TXD_PIN (GPIO_NUM_4)
-#define RXD_PIN (GPIO_NUM_5)
+#define TXD_PIN (GPIO_NUM_17)
+#define RXD_PIN (GPIO_NUM_16)
 #define CONFIG_BLINK_GPIO GPIO_NUM_2
 
 Dyson_regs dyson_reg={
@@ -66,18 +69,26 @@ void init(void) {
 
 int sendData(const char* logName, const char* data)
 {
+#ifdef DYSON_TEST    
     const int len = strlen(data);
-    const int txBytes = uart_write_bytes(UART_NUM_1, data, len);
+    const int txBytes = uart_write_bytes(UART_NUM_1, TEST_UART_TEMP_FLOW, sizeof(TEST_UART_TEMP_FLOW));
     ESP_LOGI(logName, "Wrote %d bytes", txBytes);
     return txBytes;
+
+#else
+    return 0;
+#endif
+
 }
 
 static void tx_task(void *arg)
 {
     static const char *TX_TASK_TAG = "TX_TASK";
     esp_log_level_set(TX_TASK_TAG, ESP_LOG_INFO);
-    while (1) {
-        // SendData(TX_TASK_TAG, "Hello world");
+    ESP_LOGI(TX_TASK_TAG, "UART TX Task started!");
+    while (1) 
+    {
+        sendData(TX_TASK_TAG, "Hello world");
         vTaskDelay(2000 / portTICK_PERIOD_MS);
     }
 }
@@ -87,13 +98,17 @@ static void rx_task(void *arg)
     static const char *RX_TASK_TAG = "RX_TASK";
     esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
     uint8_t* data = (uint8_t*) malloc(RX_BUF_SIZE+1);
+    uint32_t rxBytes=0;
     while (1) {
-        const int rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZE, 1000 / portTICK_PERIOD_MS);
+        rxBytes = uart_read_bytes(UART_NUM_1, data, RX_BUF_SIZE, 1000 / portTICK_PERIOD_MS);
         if (rxBytes > 0) {
-            data[rxBytes] = 0;
-            ESP_LOGI(RX_TASK_TAG, "Read %d bytes: '%s'", rxBytes, data);
+            //data[rxBytes] = 0;
+#ifdef DYSON_DEBUG
+            ESP_LOGI(RX_TASK_TAG, "Read %lu bytes: '%s'", rxBytes, data);
             ESP_LOG_BUFFER_HEXDUMP(RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
+#endif
             ParseUartStream(data,rxBytes);
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
         }
     }
     free(data);
@@ -101,21 +116,43 @@ static void rx_task(void *arg)
 static void Dyson_data_process(void *arg)
 {
     static const char *DYSON_TASK_TAG = "DYSON_TASK";
-    uart_packet_t *packet_buf=NULL, *unstuffed_pack;
-
-    esp_log_level_set(DYSON_TASK_TAG, ESP_LOG_INFO);
+    uart_packet_t *unstuffed_pack;
+    uint32_t packet_buf;
+    esp_log_level_set(DYSON_TASK_TAG, ESP_LOG_DEBUG);
+    ESP_LOGI(DYSON_TASK_TAG, "Dyson data task started!");
     while (1) 
     {
 
-        if(xQueueReceive(UartQueueHandle,packet_buf,0xFFFFFFFF))
+        if(xQueueReceive(UartQueueHandle,&packet_buf, portMAX_DELAY))
         {
-            unstuffed_pack=UnstuffPacket(packet_buf);
-            free(packet_buf);
-            ParseDysonPacket(unstuffed_pack,&dyson_reg);
+#ifdef DYSON_DEBUG
+            ESP_LOGI(DYSON_TASK_TAG, "Packet recieved! %u bytes, %u - firstbyte",((uart_packet_t*)packet_buf)->packet_size,
+                    ((uart_packet_t*)packet_buf)->ptr[0]);
+#endif
+            if(!packet_buf)
+                ESP_LOGI(DYSON_TASK_TAG, "Packet is null-pointer");
+            else
+            {
+                unstuffed_pack=UnstuffPacket((uart_packet_t*)packet_buf);
+                if(unstuffed_pack)
+                {
+#ifdef DYSON_DEBUG
+                    ESP_LOGI(DYSON_TASK_TAG, "Packet recieved! %u bytes, %u - firstbyte",unstuffed_pack->packet_size,unstuffed_pack->ptr[0]);
+                    ESP_LOG_BUFFER_HEXDUMP(DYSON_TASK_TAG, unstuffed_pack->ptr, unstuffed_pack->packet_size, ESP_LOG_INFO);
+#endif
+                    free((uart_packet_t*)packet_buf);
+                    if(ParseDysonPacket(unstuffed_pack,&dyson_reg))
+                        ESP_LOGI(DYSON_TASK_TAG, "Packet format unknown");
+                    free(unstuffed_pack);
+                        
+                }
+                else
+                    ESP_LOGI(DYSON_TASK_TAG, "Packet format unknown");
+            }
         
             
         }
-       // vTaskDelay(2000 / portTICK_PERIOD_MS);
+        //vTaskDelay(500 / portTICK_PERIOD_MS);
     }
 }
 
@@ -135,27 +172,49 @@ static void Blynk_led(void *arg)
         s_led_state=!s_led_state;
         vTaskDelay(500 / portTICK_PERIOD_MS);
     }
-    
+}
+static void DysonInfo_task(void *arg)
+{
+    static const char *DYSON_INFO_TAG = "DYSON_INFO";
+    esp_log_level_set(DYSON_INFO_TAG, ESP_LOG_INFO);
+    ESP_LOGI(DYSON_INFO_TAG, "Dysoninfo data task started!");
+    while(1)
+    {
+        //printf("Temp1= %0.2f\n",dyson_reg.Temp_reg.Temp1);
+        ESP_LOGI(DYSON_INFO_TAG,"Temp1= %0.2f, Flow1= %u",dyson_reg.Temp_reg.Temp1,dyson_reg.Flow_reg.Flow1);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
 }
 void app_main(void)
 {
     init();
-    xTaskCreate(rx_task, "uart_rx_task", 1024*2, NULL, configMAX_PRIORITIES, NULL);
-    xTaskCreate(tx_task, "uart_tx_task", 1024*2, NULL, configMAX_PRIORITIES-2, NULL);
-    xTaskCreate(Dyson_data_process, "Dyson_data_task", 1024*2, NULL, configMAX_PRIORITIES-1, NULL);
-    xTaskCreate(Blynk_led, "Blynk_Led", 256, NULL, configMAX_PRIORITIES-3, NULL);
+    ESP_LOGI("APP_MAIN", "Device Started!");
     UartQueueHandle=xQueueCreate(30,sizeof(uart_packet_t*));
+    ESP_LOGI("QUEUE_TAG", "Queue created!");
+    xTaskCreate(rx_task, "uart_rx_task", 1024*2, NULL, configMAX_PRIORITIES, NULL);
+    //xTaskCreate(tx_task, "uart_tx_task", 1024*2, NULL, configMAX_PRIORITIES-2, NULL);
+    xTaskCreate(Dyson_data_process, "Dyson_data_task", 1024*25, NULL, configMAX_PRIORITIES-1, NULL);
+    xTaskCreate(Blynk_led, "Blynk_Led", 1024*2, NULL, configMAX_PRIORITIES-4, NULL);
+    xTaskCreate(DysonInfo_task, "DysonInfo_task", 1024*3, NULL, configMAX_PRIORITIES-3, NULL);
+    
+    
     
 }
 
 void PacketReadyCallback(uart_packet_t * newPacket)
 {
     uart_packet_t *flush_buf=NULL;
-    if(!uxQueueSpacesAvailable(UartQueueHandle))
+    static size_t totalPackNum=0;
+    uint8_t q_free_space= uxQueueSpacesAvailable(UartQueueHandle);
+#ifdef DYSON_DEBUG
+    ESP_LOGI("P_READY_CALLBACK", "Callback fired!\nPacket recieved= %u, Queue free space= %u",(++totalPackNum),q_free_space);
+#endif
+    
+    if(!q_free_space)
     {
         xQueueReceive(UartQueueHandle,flush_buf,0);
         free(flush_buf);
 
     }
-    xQueueSend(UartQueueHandle,newPacket,0);
+    xQueueSend(UartQueueHandle,&newPacket,0);
 }

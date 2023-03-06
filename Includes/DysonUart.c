@@ -1,13 +1,16 @@
 #include "DysonUart.h"
 #include "stdlib.h"
+#ifdef DYSON_TEST
+    #include "stdio.h"
+#endif
 void ParseUartStream(uint8_t *RX_buffer,size_t buf_size)
 {
-    static uint8_t isPacketStarted=0;
-    static uart_packet_t *prevPacket=NULL;
+    uint8_t isPacketStarted=0;
+   // static uart_packet_t *prevPacket=NULL;
     uart_packet_t *newPacket=NULL;
-    if(isPacketStarted&&prevPacket!=NULL)
-        newPacket=prevPacket;
-
+    /*if(isPacketStarted&&prevPacket!=NULL)
+        newPacket=prevPacket;*/
+    
     for (size_t i = 0; i < buf_size; i++)
     {
         if (isPacketStarted)
@@ -15,6 +18,9 @@ void ParseUartStream(uint8_t *RX_buffer,size_t buf_size)
             newPacket->ptr[newPacket->packet_size++]=RX_buffer[i];
             if(RX_buffer[i]==START_BYTE)
             {
+            #ifdef DYSON_TEST
+                printf("UART packet recieve finished\n");
+            #endif
                 PacketReadyCallback(newPacket);
                 isPacketStarted=0;
             }
@@ -25,6 +31,9 @@ void ParseUartStream(uint8_t *RX_buffer,size_t buf_size)
             {
                 if(RX_buffer[i+1]==18 && i!=buf_size-1)
                     i++;
+            #ifdef DYSON_TEST
+                printf("UART packet recieve started\n");
+            #endif
                 newPacket= (uart_packet_t*)malloc(sizeof(uart_packet_t));
                 newPacket->packet_size=0;
                 isPacketStarted=1;
@@ -33,12 +42,15 @@ void ParseUartStream(uint8_t *RX_buffer,size_t buf_size)
         }
         
     }
-    
+    //prevPacket=newPacket;
 }
 
 __attribute__((weak)) void PacketReadyCallback(uart_packet_t * newPacket)
  {
     free(newPacket);
+    #ifdef DYSON_TEST
+        printf("WARNING: weak func is called, create strong func of PacketReadyCallback\n");
+    #endif
  }
 
 uart_packet_t* UnstuffPacket(uart_packet_t* pack)
@@ -47,7 +59,11 @@ uart_packet_t* UnstuffPacket(uart_packet_t* pack)
         return NULL;
     if(*pack->ptr!=18 ||*(pack->ptr+pack->packet_size-1)!=18)
         return NULL;
+    #ifdef DYSON_TEST
+        printf("Unstuffing %u bytes, first byte i %u\n",pack->packet_size,*pack->ptr);
+    #endif
     uart_packet_t *newPack=(uart_packet_t*)malloc(sizeof(uart_packet_t));
+    newPack->packet_size=0;
     for(int i=1,j=0; i<pack->packet_size-1;i++)
     {
         if(pack->ptr[i]==219)
@@ -140,9 +156,13 @@ uint8_t ParseDysonPacket(uart_packet_t *pack,Dyson_regs *regs)
     uint32_t packCRC32=0;
     uint8_t *data_pos_ptr;
     uint8_t regpos=10;
+
     packSize=*pack->ptr;
     packSize|=((uint16_t)pack->ptr[1])<<8;
-    if(packSize<18)
+#ifdef DYSON_TEST
+    printf("packSize= %u, packet->size = %u\n",packSize,pack->packet_size);
+#endif
+    if(packSize<18||packSize!=((uint16_t)pack->packet_size-3))
         return 1;
     //if(!CRC8_check(pacSize,pack->prt[2])) TODO: compose CRC8 func
         // return 2;
