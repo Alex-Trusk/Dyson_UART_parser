@@ -1,19 +1,24 @@
 #ifndef DYSON_UART_H
 #define DYSON_UART_H
 
-//#define DYSON_TEST 1
+//#define DYSON_TEST 1 /* uncomment to print test info*/
 #include "stdint.h"
 #include "stddef.h"
 #ifdef DYSON_TEST
     #include "TestDysonPackets.h"
 #endif
+
+/**
+ * @brief Byte Stuffing settings
+ */
+
 #define START_BYTE 0x12
 #define STOP_BYTE 0x12
 #define STUFF_BYTE_1 0xDB
 #define STUFF_BYTE_2 0xDE
 #define STUFF_BYTE_3 0xDD
 
-/*
+/**
   * @brief Structure to store received UART packet data
 */
 typedef struct uart_packet_t
@@ -24,7 +29,8 @@ typedef struct uart_packet_t
         
 }uart_packet_t;
 
-/*
+
+/**
   * @brief Structure to store Dyson parameters data
 */
 typedef struct Dyson_regs

@@ -4,7 +4,7 @@
     #include "stdio.h"
 #endif
 
-/*
+/**
   * @brief            Call this function to parse uart stream buffer  
   * @param  RX_buffer Pointer to buffer containing UART data
   * @param  buf_size  Size of RX_buffer
@@ -47,7 +47,7 @@ void ParseUartStream(uint8_t *RX_buffer,size_t buf_size)
         }
     }
 }
-/*
+/**
   * @brief           Callback function. Called in ParseUartStream func when new uart packet has been created. 
                          It is a weak function, must be reimplemented in user code to get access to uart packet object
   * @param  ptr      Pointer to uart_packet_t object containing received data
@@ -61,7 +61,7 @@ __attribute__((weak)) void PacketReadyCallback(uart_packet_t * newPacket)
     #endif
  }
 
-/*
+/**
   * @brief           Call this function to unstuffed received packet. This function allocates memory of uart_packet_t size
                          and returns a pointer to it
   * @param  ptr      Pointer to uart_packet_t object
@@ -97,7 +97,7 @@ uart_packet_t* UnstuffPacket(uart_packet_t* pack)
     return newPack;
 }
 
-/*
+/**
   * @brief           Call this function to parse registers data from dyson packet 
   * @param  ptr      Pointer to buffer containing data. Format: |var SIZE (1 byte) | N bytes in packet (1 byte) | 1..N vars of SIZE type
   * @param  reg      Pointer to Dyson_regs_t struct object
@@ -175,7 +175,7 @@ uint8_t ParseData(uint8_t *ptr, uint32_t reg)
     return 1;
 }
 
-/*
+/**
   * @brief           Call this function to parse uart packet. Packet must be unstuffed
   * @param  ptr      Pointer to uart_packet_t object
   * @param  reg      Pointer to Dyson_regs_t object 

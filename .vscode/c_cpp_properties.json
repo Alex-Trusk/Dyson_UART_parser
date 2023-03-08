@@ -7,11 +7,12 @@
             "cppStandard": "${default}",
             "includePath": [
                 "${workspaceFolder}/**",
-                "C:/Users/snt/Documents/VSCode/ESP_IDF/ESP32_AIR_PORT/Includes",
+                "C:/Users/snt/Documents/VSCode/ESP_IDF/ESP32_AIR_PORT/Includes/**",
                 "C:/Espressif/frameworks/esp-idf-v5.0.1-2/components/freertos/**",
                 "C:/Espressif/frameworks/esp-idf-v5.0.1-2/components/esp_hw_support/**",
                 "C:/Espressif/frameworks/esp-idf-v5.0.1-2/components/soc/esp32/**",
-                "C:/Espressif/frameworks/esp-idf-v5.0.1-2/components/**"
+                "C:/Espressif/frameworks/esp-idf-v5.0.1-2/components/**",
+                "C:/Users/snt/Documents/VSCode/ESP_IDF/ESP32_AIR_PORT/components/**"
             ],
             "browse": {
                 "path": [
