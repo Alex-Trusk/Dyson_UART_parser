@@ -3,13 +3,18 @@
 #ifdef DYSON_TEST
     #include "stdio.h"
 #endif
+
+/*
+  * @brief            Call this function to parse uart stream buffer  
+  * @param  RX_buffer Pointer to buffer containing UART data
+  * @param  buf_size  Size of RX_buffer
+  * @retval           Nothing.
+
+  */
 void ParseUartStream(uint8_t *RX_buffer,size_t buf_size)
 {
     uint8_t isPacketStarted=0;
-   // static uart_packet_t *prevPacket=NULL;
     uart_packet_t *newPacket=NULL;
-    /*if(isPacketStarted&&prevPacket!=NULL)
-        newPacket=prevPacket;*/
     
     for (size_t i = 0; i < buf_size; i++)
     {
@@ -40,11 +45,14 @@ void ParseUartStream(uint8_t *RX_buffer,size_t buf_size)
                 newPacket->ptr[newPacket->packet_size++]=RX_buffer[i];
             }
         }
-        
     }
-    //prevPacket=newPacket;
 }
-
+/*
+  * @brief           Callback function. Called in ParseUartStream func when new uart packet has been created. 
+                         It is a weak function, must be reimplemented in user code to get access to uart packet object
+  * @param  ptr      Pointer to uart_packet_t object containing received data
+  * @return          Nothing.
+  */
 __attribute__((weak)) void PacketReadyCallback(uart_packet_t * newPacket)
  {
     free(newPacket);
@@ -53,25 +61,31 @@ __attribute__((weak)) void PacketReadyCallback(uart_packet_t * newPacket)
     #endif
  }
 
+/*
+  * @brief           Call this function to unstuffed received packet. This function allocates memory of uart_packet_t size
+                         and returns a pointer to it
+  * @param  ptr      Pointer to uart_packet_t object
+  * @return          Pointer to unstuffed packet
+  */
 uart_packet_t* UnstuffPacket(uart_packet_t* pack)
 {
     if(pack->packet_size<2)
         return NULL;
-    if(*pack->ptr!=18 ||*(pack->ptr+pack->packet_size-1)!=18)
+    if(*pack->ptr!=START_BYTE ||*(pack->ptr+pack->packet_size-1)!=START_BYTE)
         return NULL;
-    #ifdef DYSON_TEST
+#ifdef DYSON_TEST
         printf("Unstuffing %u bytes, first byte i %u\n",pack->packet_size,*pack->ptr);
-    #endif
+#endif
     uart_packet_t *newPack=(uart_packet_t*)malloc(sizeof(uart_packet_t));
     newPack->packet_size=0;
     for(int i=1,j=0; i<pack->packet_size-1;i++)
     {
-        if(pack->ptr[i]==219)
+        if(pack->ptr[i]==STUFF_BYTE_1)
         {
-            if(pack->ptr[i+1]==222)
-                newPack->ptr[j]=18;
-            else if(pack->ptr[i+1]==221)
-                    newPack->ptr[j]=219;
+            if(pack->ptr[i+1]==STUFF_BYTE_2)
+                newPack->ptr[j]=START_BYTE;
+            else if(pack->ptr[i+1]==STUFF_BYTE_3)
+                    newPack->ptr[j]=STUFF_BYTE_1;
             ++i;
         }
         else
@@ -83,7 +97,14 @@ uart_packet_t* UnstuffPacket(uart_packet_t* pack)
     return newPack;
 }
 
-void ParseData(uint8_t *ptr, uint32_t reg)
+/*
+  * @brief           Call this function to parse registers data from dyson packet 
+  * @param  ptr      Pointer to buffer containing data. Format: |var SIZE (1 byte) | N bytes in packet (1 byte) | 1..N vars of SIZE type
+  * @param  reg      Pointer to Dyson_regs_t struct object
+  * @retval          0 - unknown format
+  * @retval          1 - succesfully parsed
+  */
+uint8_t ParseData(uint8_t *ptr, uint32_t reg)
 {
     switch (*ptr)
     {
@@ -145,18 +166,35 @@ void ParseData(uint8_t *ptr, uint32_t reg)
         break;
 
     default:
+#ifdef DYSON_TEST
+            printf("ParseData: unknown format\n");
+#endif
+        return 0;
         break;
     }
+    return 1;
 }
 
-uint8_t ParseDysonPacket(uart_packet_t *pack,Dyson_regs *regs)
+/*
+  * @brief           Call this function to parse uart packet. Packet must be unstuffed
+  * @param  ptr      Pointer to uart_packet_t object
+  * @param  reg      Pointer to Dyson_regs_t object 
+  * @retval          0 - unknown format
+  * @retval          1 - succesfully parsed
+  * @retval          2 - CRC fail
+  * @retval          3 - input variable pointer is NULL 
+  */
+uint8_t ParseDysonPacket(uart_packet_t *pack,Dyson_regs_t *regs)
 {
     
     uint16_t packSize=0;
     uint32_t packCRC32=0;
     uint8_t *data_pos_ptr;
     uint8_t regpos=10;
+    uint8_t parseRes=0;
 
+    if(!pack||!regs)
+        return 3;
     packSize=*pack->ptr;
     packSize|=((uint16_t)pack->ptr[1])<<8;
 #ifdef DYSON_TEST
@@ -181,7 +219,7 @@ uint8_t ParseDysonPacket(uart_packet_t *pack,Dyson_regs *regs)
     case 18:
         if (pack->ptr[regpos+1]==0&&pack->ptr[regpos+2]==1&&pack->ptr[regpos+3]==0)
         {
-            ParseData(data_pos_ptr,(uint32_t)&(regs->Flow_reg));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->Flow_reg));
         }
         break;
 
@@ -189,39 +227,42 @@ uint8_t ParseDysonPacket(uart_packet_t *pack,Dyson_regs *regs)
         switch (pack->ptr[regpos+2])
         {
         case 2:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_2_0));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_2_0));
             break;
         case 3:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_3_0));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_3_0));
             break;
         case 4:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->Temp_reg));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->Temp_reg));
             break;
         case 5:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_5_0));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_5_0));
             break;
         case 6:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_6_0));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_6_0));
             break;
         case 7:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_7_0));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_7_0));
             break;
         case 8:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_8_0));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_8_0));
             break;
         case 9:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_9_0));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_9_0));
             break;
         case 10:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_10_0));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_10_0));
             break;
         case 11:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->UpTime_reg));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->UpTime_reg));
             break;
          case 12:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_12_0));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->reg_2_0_12_0));
             break;
         default:
+#ifdef DYSON_TEST
+            printf("unknown second reg: %d\n",pack->ptr[regpos+2]);
+#endif
             break;
         }
         break;
@@ -229,32 +270,39 @@ uint8_t ParseDysonPacket(uart_packet_t *pack,Dyson_regs *regs)
         switch (pack->ptr[regpos+2])
         {
         case 1:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->reg_3_0_1_0));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->reg_3_0_1_0));
             break;
         case 5:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->reg_3_0_5_0));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->reg_3_0_5_0));
             break;
         case 6:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->reg_3_0_6_0));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->reg_3_0_6_0));
             break;
         case 7:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->reg_3_0_7_0));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->reg_3_0_7_0));
             break;
         case 8:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->reg_3_0_8_0));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->reg_3_0_8_0));
             break;
         case 9:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->reg_3_0_9_0));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->reg_3_0_9_0));
             break;
          case 10:
-            ParseData(data_pos_ptr,(uint32_t)&(regs->reg_3_0_10_0));
+            parseRes=ParseData(data_pos_ptr,(uint32_t)&(regs->reg_3_0_10_0));
             break;
         default:
+#ifdef DYSON_TEST
+            printf("unknown second reg: %d\n",pack->ptr[regpos+2]);
+#endif
             break;
         }
+        break;
     default:
+#ifdef DYSON_TEST
+        printf("unknown first reg: %d\n",pack->ptr[regpos]);
+#endif
         break;
     }
 
-return 0;
+return parseRes;
 }

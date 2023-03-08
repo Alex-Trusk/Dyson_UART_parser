@@ -14,7 +14,7 @@
 #include "string.h"
 #include "driver/gpio.h"
 #include "../Includes/DysonUart.h"
-
+#include "linenoise/linenoise.h"
 //#define DYSON_DEBUG
 
 
@@ -23,8 +23,8 @@ QueueHandle_t UartQueueHandle;
 #define TXD_PIN (GPIO_NUM_17)
 #define RXD_PIN (GPIO_NUM_16)
 #define CONFIG_BLINK_GPIO GPIO_NUM_2
-
-Dyson_regs dyson_reg={
+/*
+Dyson_regs_t dyson_reg={
     .Flow_reg.Flow1=0, .Flow_reg.Flow2=0,.Flow_reg.Flow3=0,.Flow_reg.Flow4=0,
     .reg_2_0_10_0.Reg1=0.0f, .reg_2_0_10_0.Reg2=0.0f,.reg_2_0_10_0.Reg3=0.0f,.reg_2_0_10_0.Reg4=0.0f,.reg_2_0_10_0.Reg5=0.0f,
     .reg_2_0_10_0.Reg6=0.0f,.reg_2_0_10_0.Reg7=0.0f,
@@ -33,13 +33,13 @@ Dyson_regs dyson_reg={
     .reg_2_0_3_0.Reg1=0.0f,.reg_2_0_3_0.Reg2=0.0f,.reg_2_0_3_0.Reg3=0.0f,.reg_2_0_3_0.Reg4=0.0f,.reg_2_0_3_0.Reg5=0.0f,
     .reg_2_0_5_0.Reg1=0,.reg_2_0_5_0.Reg2=0,.reg_2_0_5_0.Reg3=0,
     .reg_2_0_6_0.Reg1=0,.reg_2_0_6_0.Reg2=0,
-    .reg_2_0_7_0.Reg1=0.0f,.reg_2_0_7_0.Reg2=0.0f,.reg_2_0_7_0.Reg3=0.0f,.reg_2_0_7_0.Reg4=0.0f,.reg_2_0_7_0.Reg5=0.0f,
+    .reg_2_0_7_0.Part_2_5=0.0f,.reg_2_0_7_0.Part_10=0.0f,.reg_2_0_7_0.Reg3=0.0f,.reg_2_0_7_0.Reg4=0.0f,.reg_2_0_7_0.Reg5=0.0f,
     .reg_2_0_7_0.Reg6=0.0f,.reg_2_0_7_0.Reg7=0.0f,.reg_2_0_7_0.Reg8=0.0f,.reg_2_0_7_0.Reg9=0.0f,.reg_2_0_7_0.Reg10=0.0f,
     .reg_2_0_7_0.Reg11=0.0f,.reg_2_0_7_0.Reg12=0.0f,
-    .reg_2_0_8_0.Reg1=0,.reg_2_0_8_0.Reg2=0,.reg_2_0_8_0.Reg3=0,.reg_2_0_8_0.Reg4=0,.reg_2_0_8_0.Reg5=0,.reg_2_0_8_0.Reg6=0,
-    .reg_2_0_8_0.Reg7=0,.reg_2_0_8_0.Reg8=0,.reg_2_0_8_0.Reg9=0,.reg_2_0_8_0.Reg10=0,.reg_2_0_8_0.Reg11=0,.reg_2_0_8_0.Reg12=0,
+    .reg_2_0_8_0.Part_2_5_int=0.0f,.reg_2_0_8_0.Reg2=0,.reg_2_0_8_0.Reg3=0,.reg_2_0_8_0.Reg4=0,.reg_2_0_8_0.Reg5=0,.reg_2_0_8_0.Reg6=0,
+    .reg_2_0_8_0.Reg7=0.0f,.reg_2_0_8_0.Reg8=0.0f,.reg_2_0_8_0.Reg9=0.0f,.reg_2_0_8_0.Reg10=0.0f,.reg_2_0_8_0.Part_10_int=0.0f,.reg_2_0_8_0.Reg12=0.0f,
     .reg_2_0_9_0.Reg1=0.0f,.reg_2_0_9_0.Reg2=0.0f,.reg_2_0_9_0.Reg3=0.0f,.reg_2_0_9_0.Reg4=0.0f,.reg_2_0_9_0.Reg5=0.0f,
-    .reg_3_0_10_0.Reg1=0.0f,.reg_3_0_10_0.Reg2=0.0f,.reg_3_0_10_0.Reg3=0.0f,.reg_3_0_10_0.Reg4=0.0f,.reg_3_0_10_0.Reg5=0.0f,
+    .reg_3_0_10_0.Reg1=0.0f,.reg_3_0_10_0.Reg2=0.0f,.reg_3_0_10_0.Reg3=0.0f,.reg_3_0_10_0.Reg4=0.0f,.reg_3_0_10_0.Up_time=0.0f,
     .reg_3_0_1_0.Reg1=0,.reg_3_0_1_0.Reg2=0,
     .reg_3_0_5_0.Reg1=0.0f,.reg_3_0_5_0.Reg2=0.0f,.reg_3_0_5_0.Reg3=0.0f,.reg_3_0_5_0.Reg4=0.0f,
     .reg_3_0_6_0.Reg1=0.0f,.reg_3_0_6_0.Reg2=0.0f,.reg_3_0_6_0.Reg3=0.0f,.reg_3_0_6_0.Reg4=0.0f,.reg_3_0_6_0.Reg5=0.0f,
@@ -47,10 +47,10 @@ Dyson_regs dyson_reg={
     .reg_3_0_8_0.Reg1=0.0f,.reg_3_0_8_0.Reg2=0.0f,.reg_3_0_8_0.Reg3=0.0f,.reg_3_0_8_0.Reg4=0.0f,
     .reg_3_0_9_0.Reg1=0.0f,.reg_3_0_9_0.Reg2=0.0f,.reg_3_0_9_0.Reg3=0.0f,.reg_3_0_9_0.Reg4=0.0f,.reg_3_0_9_0.Reg5=0.0f,
     .reg_3_0_9_0.Reg6=0.0f,
-    .Temp_reg.Temp1=0.0f,.Temp_reg.Temp2=0.0f,.Temp_reg.Temp3=0.0f,.Temp_reg.Temp4=0.0f,.Temp_reg.Temp5=0.0f,
+    .Temp_reg.Temp1=0.0f,.Temp_reg.Temp2=0.0f,.Temp_reg.Temp3=0.0f,.Temp_reg.Humidity=0.0f,.Temp_reg.Vent_level=0.0f,
     .UpTime_reg=0
-};
-
+};*/
+Dyson_regs_t dyson_reg;
 
 void init(void) {
     const uart_config_t uart_config = {
@@ -65,6 +65,7 @@ void init(void) {
     uart_driver_install(UART_NUM_1, RX_BUF_SIZE * 2, 0, 0, NULL, 0);
     uart_param_config(UART_NUM_1, &uart_config);
     uart_set_pin(UART_NUM_1, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    memset(&dyson_reg,0,sizeof(Dyson_regs_t));
 }
 
 int sendData(const char* logName, const char* data)
@@ -89,7 +90,7 @@ static void tx_task(void *arg)
     while (1) 
     {
         sendData(TX_TASK_TAG, "Hello world");
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
 
@@ -108,7 +109,7 @@ static void rx_task(void *arg)
             ESP_LOG_BUFFER_HEXDUMP(RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
 #endif
             ParseUartStream(data,rxBytes);
-            vTaskDelay(1000 / portTICK_PERIOD_MS);
+            vTaskDelay(pdMS_TO_TICKS(500));
         }
     }
     free(data);
@@ -147,12 +148,15 @@ static void Dyson_data_process(void *arg)
                         
                 }
                 else
+                {
                     ESP_LOGI(DYSON_TASK_TAG, "Packet format unknown");
+                    free((uart_packet_t*)packet_buf);
+                }
             }
         
             
         }
-        //vTaskDelay(500 / portTICK_PERIOD_MS);
+
     }
 }
 
@@ -170,7 +174,7 @@ static void Blynk_led(void *arg)
     {
         gpio_set_level(CONFIG_BLINK_GPIO, s_led_state);
         s_led_state=!s_led_state;
-        vTaskDelay(500 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
 static void DysonInfo_task(void *arg)
@@ -180,20 +184,86 @@ static void DysonInfo_task(void *arg)
     ESP_LOGI(DYSON_INFO_TAG, "Dysoninfo data task started!");
     while(1)
     {
-        //printf("Temp1= %0.2f\n",dyson_reg.Temp_reg.Temp1);
-        ESP_LOGI(DYSON_INFO_TAG,"Temp1= %0.2f, Flow1= %u",dyson_reg.Temp_reg.Temp1,dyson_reg.Flow_reg.Flow1);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+        linenoiseClearScreen();
+        ESP_LOGI(DYSON_INFO_TAG,"Temp1= %0.2f, Temp2= %0.2f, Temp3= %0.2f, Humidity= %0.2f, Vent_level= %0.2f",
+                dyson_reg.Temp_reg.Temp1,dyson_reg.Temp_reg.Temp2,dyson_reg.Temp_reg.Temp3,dyson_reg.Temp_reg.Humidity,
+                dyson_reg.Temp_reg.Vent_level);
+
+        ESP_LOGI(DYSON_INFO_TAG,"Flow1= %u, Flow2= %u, Flow3= %u, Flow4= %u",dyson_reg.Flow_reg.Flow1, dyson_reg.Flow_reg.Flow2,
+                dyson_reg.Flow_reg.Flow3, dyson_reg.Flow_reg.Flow4);
+
+        ESP_LOGI(DYSON_INFO_TAG,"2_0_3_reg1= %0.2f, 2_0_3_reg2= %0.2f, 2_0_3_reg3= %0.2f, 2_0_3_reg4= %0.2f, 2_0_3_reg5= %0.2f",
+                dyson_reg.reg_2_0_3_0.Reg1,dyson_reg.reg_2_0_3_0.Reg2,dyson_reg.reg_2_0_3_0.Reg3,dyson_reg.reg_2_0_3_0.Reg4,
+                dyson_reg.reg_2_0_3_0.Reg5);
+
+        ESP_LOGI(DYSON_INFO_TAG,"2_0_5_reg1= %lu, 2_0_5_reg2= %lu, 2_0_5_reg3= %lu",
+                dyson_reg.reg_2_0_5_0.Reg1,dyson_reg.reg_2_0_5_0.Reg2,dyson_reg.reg_2_0_5_0.Reg3);
+
+
+        ESP_LOGI(DYSON_INFO_TAG,"Part_2.5= %0.2f, Part_10= %0.2f, 2_0_7_reg3= %0.2f, 2_0_7_reg4= %0.2f, 2_0_7_reg5= %0.2f",
+                dyson_reg.reg_2_0_7_0.Part_2_5, dyson_reg.reg_2_0_7_0.Part_10, dyson_reg.reg_2_0_7_0.Reg3, dyson_reg.reg_2_0_7_0.Reg4,
+                dyson_reg.reg_2_0_7_0.Reg5);
+        ESP_LOGI(DYSON_INFO_TAG,"2_0_7_reg6= %0.2f, 2_0_7_reg7= %0.2f, 2_0_7_reg8= %0.2f, 2_0_7_reg9= %0.2f, 2_0_7_reg10= %0.2f",
+                dyson_reg.reg_2_0_7_0.Reg6, dyson_reg.reg_2_0_7_0.Reg7, dyson_reg.reg_2_0_7_0.Reg8, dyson_reg.reg_2_0_7_0.Reg9,
+                dyson_reg.reg_2_0_7_0.Reg10);
+        ESP_LOGI(DYSON_INFO_TAG,"2_0_7_reg11= %0.2f, 2_0_7_reg12= %0.2f, 2_0_7_reg13= %0.2f",dyson_reg.reg_2_0_7_0.Reg11, 
+                dyson_reg.reg_2_0_7_0.Reg12, dyson_reg.reg_2_0_7_0.Reg13);
+
+        ESP_LOGI(DYSON_INFO_TAG,"Part_2_5int= %u, 2_0_8_reg2= %u, 2_0_8_reg3= %u, 2_0_8_reg4= %u, 2_0_8_reg5= %u",
+                dyson_reg.reg_2_0_8_0.Part_2_5_int, dyson_reg.reg_2_0_8_0.Reg2, dyson_reg.reg_2_0_8_0.Reg3, dyson_reg.reg_2_0_8_0.Reg4,
+                dyson_reg.reg_2_0_8_0.Reg5);
+        ESP_LOGI(DYSON_INFO_TAG,"2_0_8_reg6= %u, 2_0_8_reg7= %u, 2_0_8_reg8= %u, 2_0_8_reg9= %u, 2_0_8_reg10= %u",
+                dyson_reg.reg_2_0_8_0.Reg6, dyson_reg.reg_2_0_8_0.Reg7, dyson_reg.reg_2_0_8_0.Reg8, dyson_reg.reg_2_0_8_0.Reg9,
+                dyson_reg.reg_2_0_8_0.Reg10);
+        ESP_LOGI(DYSON_INFO_TAG,"2_0_8_reg11= %u, 2_0_8_reg12= %u",dyson_reg.reg_2_0_8_0.Part_10_int, 
+                dyson_reg.reg_2_0_8_0.Reg12);
+
+        ESP_LOGI(DYSON_INFO_TAG,"3_0_5_reg1= %0.2f, 3_0_5_reg2= %0.2f, 3_0_5_reg3= %0.2f, 3_0_5_reg4= %0.2f",
+                dyson_reg.reg_3_0_5_0.Reg1, dyson_reg.reg_3_0_5_0.Reg2, dyson_reg.reg_3_0_5_0.Reg3, dyson_reg.reg_3_0_5_0.Reg4);
+
+        ESP_LOGI(DYSON_INFO_TAG,"3_0_6_reg1= %0.2f, 3_0_6_reg2= %0.2f, 3_0_6_reg3= %0.2f, 3_0_6_reg4= %0.2f, 3_0_6_reg5= %0.2f",
+                dyson_reg.reg_3_0_6_0.Reg1, dyson_reg.reg_3_0_6_0.Reg2, dyson_reg.reg_3_0_6_0.Reg3, dyson_reg.reg_3_0_6_0.Reg4,
+                dyson_reg.reg_3_0_6_0.Reg5);
+
+        ESP_LOGI(DYSON_INFO_TAG,"3_0_7_reg1= %0.2f, 3_0_7_reg2= %0.2f, 3_0_7_reg3= %0.2f, 3_0_7_reg4= %0.2f, 3_0_7_reg5= %0.2f",
+                dyson_reg.reg_3_0_7_0.Reg1, dyson_reg.reg_3_0_7_0.Reg2, dyson_reg.reg_3_0_7_0.Reg3, dyson_reg.reg_3_0_7_0.Reg4,
+                dyson_reg.reg_3_0_7_0.Reg5);
+
+        ESP_LOGI(DYSON_INFO_TAG,"3_0_8_reg1= %0.2f, 3_0_8_reg2= %0.2f, 3_0_8_reg3= %0.2f, 3_0_8_reg4= %0.2f",
+                dyson_reg.reg_3_0_8_0.Reg1, dyson_reg.reg_3_0_8_0.Reg2, dyson_reg.reg_3_0_8_0.Reg3, dyson_reg.reg_3_0_8_0.Reg4);
+        
+        ESP_LOGI(DYSON_INFO_TAG,"3_0_9_reg1= %0.2f, 3_0_9_reg2= %0.2f, 3_0_9_reg3= %0.2f, 3_0_9_reg4= %0.2f, 3_0_9_reg5= %0.2f, 3_0_9_reg6= %0.2f",
+                dyson_reg.reg_3_0_9_0.Reg1, dyson_reg.reg_3_0_9_0.Reg2, dyson_reg.reg_3_0_9_0.Reg3, dyson_reg.reg_3_0_9_0.Reg4,
+                dyson_reg.reg_3_0_9_0.Reg5, dyson_reg.reg_3_0_9_0.Reg6);
+
+        ESP_LOGI(DYSON_INFO_TAG,"3_0_10_reg1= %0.2f, 3_0_10_reg2= %0.2f, 3_0_10_reg3= %0.2f, 3_0_10_reg4= %0.2f, 3_0_10_Up_time= %0.2f",
+                dyson_reg.reg_3_0_10_0.Reg1, dyson_reg.reg_3_0_10_0.Reg2, dyson_reg.reg_3_0_10_0.Reg3, dyson_reg.reg_3_0_10_0.Reg4,
+                dyson_reg.reg_3_0_10_0.Up_time);
+        
+        ESP_LOGI(DYSON_INFO_TAG,"2_0_2_Reg1= %u, 2_0_2_Reg2= %u, 2_0_2_Reg3= %u, 2_0_2_Reg4= %u",dyson_reg.reg_2_0_2_0.Reg1, dyson_reg.reg_2_0_2_0.Reg2,
+                dyson_reg.reg_2_0_2_0.Reg3, dyson_reg.reg_2_0_2_0.Reg4);
+
+        ESP_LOGI(DYSON_INFO_TAG,"2_0_6_Reg1= %u, 2_0_6_Reg2= %u",dyson_reg.reg_2_0_6_0.Reg1, dyson_reg.reg_2_0_6_0.Reg2);
+
+        ESP_LOGI(DYSON_INFO_TAG,"2_0_10_reg1= %0.2f, 2_0_10_reg2= %0.2f, 2_0_10_reg3= %0.2f, 2_0_10_reg4= %0.2f, 2_0_10_reg5= %0.2f",
+                dyson_reg.reg_2_0_10_0.Reg1, dyson_reg.reg_2_0_10_0.Reg2, dyson_reg.reg_2_0_10_0.Reg3, dyson_reg.reg_2_0_10_0.Reg4,
+                dyson_reg.reg_2_0_10_0.Reg5);
+        ESP_LOGI(DYSON_INFO_TAG,"2_0_10_reg6= %0.2f, 2_0_10_reg7= %0.2f",dyson_reg.reg_2_0_10_0.Reg6, dyson_reg.reg_2_0_10_0.Reg7);
+
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 void app_main(void)
 {
     init();
+    
     ESP_LOGI("APP_MAIN", "Device Started!");
     UartQueueHandle=xQueueCreate(30,sizeof(uart_packet_t*));
     ESP_LOGI("QUEUE_TAG", "Queue created!");
     xTaskCreate(rx_task, "uart_rx_task", 1024*2, NULL, configMAX_PRIORITIES, NULL);
     //xTaskCreate(tx_task, "uart_tx_task", 1024*2, NULL, configMAX_PRIORITIES-2, NULL);
-    xTaskCreate(Dyson_data_process, "Dyson_data_task", 1024*25, NULL, configMAX_PRIORITIES-1, NULL);
+    xTaskCreate(Dyson_data_process, "Dyson_data_task", 1024*5, NULL, configMAX_PRIORITIES-1, NULL);
     xTaskCreate(Blynk_led, "Blynk_Led", 1024*2, NULL, configMAX_PRIORITIES-4, NULL);
     xTaskCreate(DysonInfo_task, "DysonInfo_task", 1024*3, NULL, configMAX_PRIORITIES-3, NULL);
     

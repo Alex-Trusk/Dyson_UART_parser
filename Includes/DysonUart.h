@@ -9,15 +9,24 @@
 #endif
 #define START_BYTE 0x12
 #define STOP_BYTE 0x12
-#define STUFF_BYTE_1
+#define STUFF_BYTE_1 0xDB
+#define STUFF_BYTE_2 0xDE
+#define STUFF_BYTE_3 0xDD
+
+/*
+  * @brief Structure to store received UART packet data
+*/
 typedef struct uart_packet_t
 {
-    uint8_t ptr[256];
-     size_t packet_size;
-    float time;
+    uint8_t ptr[256];       // @brief Variable to store uart packet data
+    size_t packet_size;     // @brief Size of ptr in bytes
+    float time;             // @brief Time of recieved packets, seconds from the device start (optional)
         
 }uart_packet_t;
 
+/*
+  * @brief Structure to store Dyson parameters data
+*/
 typedef struct Dyson_regs
 {
     struct Flow_reg_t
@@ -35,8 +44,8 @@ typedef struct Dyson_regs
         double Temp1;
         double Temp2;
         double Temp3;
-        double Temp4;
-        double Temp5;
+        double Humidity;
+        double Vent_level;
     }Temp_reg;
 
     struct reg_2_0_3_0
@@ -71,8 +80,8 @@ typedef struct Dyson_regs
 
     struct reg_2_0_7_0
     {
-        double Reg1;
-        double Reg2;
+        double Part_2_5;
+        double Part_10;
         double Reg3;
         double Reg4;
         double Reg5;
@@ -88,7 +97,7 @@ typedef struct Dyson_regs
 
     struct reg_2_0_8_0
     {
-        uint8_t Reg1;
+        uint8_t Part_2_5_int;
         uint8_t Reg2;
         uint8_t Reg3;
         uint8_t Reg4;
@@ -98,7 +107,7 @@ typedef struct Dyson_regs
         uint8_t Reg8;
         uint8_t Reg9;
         uint8_t Reg10;
-        uint8_t Reg11;
+        uint8_t Part_10_int;
         uint8_t Reg12;
     }reg_2_0_8_0;
 
@@ -187,63 +196,17 @@ typedef struct Dyson_regs
         double Reg2;
         double Reg3;
         double Reg4;
-        double Reg5;
+        double Up_time;
     }reg_3_0_10_0;
-}Dyson_regs;
-/*
-#define BUFFER_SIZE 10
-#define NUM_BUFFERS 2
+}Dyson_regs_t;
 
-typedef struct packets_buffer {
-    uart_packet_t buffer[BUFFER_SIZE];
-    size_t front;
-    size_t rear;
-}packets_buffer_t;
-
-
-
-void push(packets_buffer_t *buf, int value) {
-    if ((buf->front == 0 && buf->rear == BUFFER_SIZE - 1) || buf->rear == buf->front - 1) {
-        printf("Buffer overflow!\n");
-        return;
-    }
-
-    if (buf->front == -1 && buf->rear == -1) {
-        buf->front = buf->rear = 0;
-        buf->buffer[buf->rear] = value;
-    } else if (buf->rear == BUFFER_SIZE - 1 && buf->front != 0) {
-        buf->rear = 0;
-        buf->buffer[buf->rear] = value;
-    } else {
-        buf->rear++;
-        buf->buffer[buf->rear] = value;
-    }
-}
-
-int remove(struct fifo_buffer *buf) {
-    if (buf->front == -1) {
-        printf("Buffer underflow!\n");
-        return -1;
-    }
-
-    int value = buf->buffer[buf->front];
-    if (buf->front == buf->rear) {
-        buf->front = buf->rear = -1;
-    } else if (buf->front == BUFFER_SIZE - 1) {
-        buf->front = 0;
-    } else {
-        buf->front++;
-    }
-    return value;
-}
-*/
 void ParseUartStream(uint8_t *rx_buf,size_t buf_size);
 
 void PacketReadyCallback(uart_packet_t * newPacket);
 
 uart_packet_t* UnstuffPacket(uart_packet_t* pack);
 
-uint8_t ParseDysonPacket(uart_packet_t *pack,Dyson_regs *regs);
+uint8_t ParseDysonPacket(uart_packet_t *pack,Dyson_regs_t *regs);
 
-void ParseData(uint8_t *ptr, uint32_t reg);
+uint8_t ParseData(uint8_t *ptr, uint32_t reg);
 #endif
