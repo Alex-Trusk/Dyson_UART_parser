@@ -206,7 +206,7 @@ typedef struct Dyson_regs
     }reg_3_0_10_0;
 }Dyson_regs_t;
 
-void ParseUartStream(uint8_t *rx_buf,size_t buf_size);
+uint8_t ParseUartStream(uint8_t *rx_buf,size_t buf_size);
 
 void PacketReadyCallback(uart_packet_t * newPacket);
 

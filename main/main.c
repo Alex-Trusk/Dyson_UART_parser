@@ -18,6 +18,7 @@
 #include <esp_wifi.h>
 #include <esp_netif.h>
 #include "../components/esp32-wifi-manager/src/wifi_manager.h"
+#include "esp_heap_trace.h"
 //#define DYSON_DEBUG  /* uncomment to print debug info*/
 
 
@@ -26,8 +27,20 @@ QueueHandle_t UartQueueHandle;
 #define TXD_PIN (GPIO_NUM_17)           //UART TX pin
 #define RXD_PIN (GPIO_NUM_16)           //UART RX pin
 #define CONFIG_BLINK_GPIO GPIO_NUM_2    //Onboard led pin
+#ifdef DYSON_DEBUG
+    #define NUM_RECORDS 256
+    static heap_trace_record_t trace_record[NUM_RECORDS];
+#endif
 
-Dyson_regs_t dyson_reg;                 
+
+Dyson_regs_t dyson_reg;      
+
+
+void malloc_failed_callback(size_t size, uint32_t caps, const char * function_name)
+{
+    esp_log_level_set("MALLOC FAILED", ESP_LOG_ERROR);
+    ESP_LOGI("MALLOC FAILED","Heap allocation failed. Unallocated size: %u, Capability: %lu, Function %s \n", size,caps,function_name);
+}
 
 void init(void) {
     const uart_config_t uart_config = {
@@ -43,6 +56,11 @@ void init(void) {
     uart_param_config(UART_NUM_1, &uart_config);
     uart_set_pin(UART_NUM_1, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     memset(&dyson_reg,0,sizeof(Dyson_regs_t));
+    heap_caps_register_failed_alloc_callback(malloc_failed_callback);
+#ifdef DYSON_DEBUG
+    ESP_ERROR_CHECK(heap_trace_init_standalone(trace_record, NUM_RECORDS));
+#endif
+
 }
 
 int sendData(const char* logName, const char* data)
@@ -87,8 +105,14 @@ static void rx_task(void *arg)
 #ifdef DYSON_DEBUG
             ESP_LOGI(RX_TASK_TAG, "Read %lu bytes: '%s'", rxBytes, data);
             ESP_LOG_BUFFER_HEXDUMP(RX_TASK_TAG, data, rxBytes, ESP_LOG_INFO);
+            ESP_ERROR_CHECK(heap_trace_start(HEAP_TRACE_LEAKS));
 #endif
-            ParseUartStream(data,rxBytes);
+            if(!ParseUartStream(data,rxBytes))
+            {
+                esp_log_level_set(RX_TASK_TAG, ESP_LOG_ERROR);
+                ESP_LOGI(RX_TASK_TAG, "Allocation failed!!!");
+                esp_log_level_set(RX_TASK_TAG, ESP_LOG_INFO);
+            }
             vTaskDelay(pdMS_TO_TICKS(500));
         }
     }
@@ -123,19 +147,20 @@ static void Dyson_data_process(void *arg)
                     ESP_LOG_BUFFER_HEXDUMP(DYSON_TASK_TAG, unstuffed_pack->ptr, unstuffed_pack->packet_size, ESP_LOG_INFO);
 #endif
                     free((uart_packet_t*)packet_buf);
-                    if(ParseDysonPacket(unstuffed_pack,&dyson_reg))
-                        ESP_LOGI(DYSON_TASK_TAG, "Packet format unknown");
+                    if(!ParseDysonPacket(unstuffed_pack,&dyson_reg))
+                        ESP_LOGI(DYSON_TASK_TAG, "Parcer: Packet format unknown");
                     free(unstuffed_pack);
                         
                 }
                 else
                 {
-                    ESP_LOGI(DYSON_TASK_TAG, "Packet format unknown");
+                    ESP_LOGI(DYSON_TASK_TAG, "Unstuffer: Packet format unknown");
                     free((uart_packet_t*)packet_buf);
                 }
             }
         }
     }
+    
 }
 
 /*
@@ -170,12 +195,17 @@ static void DysonInfo_task(void *arg)
     while(1)
     {
 
-        linenoiseClearScreen();
+        //linenoiseClearScreen();
         ESP_LOGI(DYSON_INFO_TAG,"Temp1= %0.2f, Temp2= %0.2f, Temp3= %0.2f, Humidity= %0.2f, Vent_level= %0.2f",
                 dyson_reg.Temp_reg.Temp1,dyson_reg.Temp_reg.Temp2,dyson_reg.Temp_reg.Temp3,dyson_reg.Temp_reg.Humidity,
                 dyson_reg.Temp_reg.Vent_level);
-
-        ESP_LOGI(DYSON_INFO_TAG,"Flow1= %u, Flow2= %u, Flow3= %u, Flow4= %u",dyson_reg.Flow_reg.Flow1, dyson_reg.Flow_reg.Flow2,
+#ifdef DYSON_DEBUG
+        ESP_LOGI(DYSON_INFO_TAG,"Free heap= %lu",xPortGetFreeHeapSize());
+        ESP_LOGI(DYSON_INFO_TAG,"Queue size= %u",uxQueueMessagesWaiting(UartQueueHandle));
+        heap_trace_stop();
+        heap_trace_dump();
+#endif        
+       /*ESP_LOGI(DYSON_INFO_TAG,"Flow1= %u, Flow2= %u, Flow3= %u, Flow4= %u",dyson_reg.Flow_reg.Flow1, dyson_reg.Flow_reg.Flow2,
                 dyson_reg.Flow_reg.Flow3, dyson_reg.Flow_reg.Flow4);
 
         ESP_LOGI(DYSON_INFO_TAG,"2_0_3_reg1= %0.2f, 2_0_3_reg2= %0.2f, 2_0_3_reg3= %0.2f, 2_0_3_reg4= %0.2f, 2_0_3_reg5= %0.2f",
@@ -235,8 +265,8 @@ static void DysonInfo_task(void *arg)
                 dyson_reg.reg_2_0_10_0.Reg1, dyson_reg.reg_2_0_10_0.Reg2, dyson_reg.reg_2_0_10_0.Reg3, dyson_reg.reg_2_0_10_0.Reg4,
                 dyson_reg.reg_2_0_10_0.Reg5);
         ESP_LOGI(DYSON_INFO_TAG,"2_0_10_reg6= %0.2f, 2_0_10_reg7= %0.2f",dyson_reg.reg_2_0_10_0.Reg6, dyson_reg.reg_2_0_10_0.Reg7);
-
-        vTaskDelay(pdMS_TO_TICKS(1000));
+*/
+        vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
 void app_main(void)
@@ -250,7 +280,7 @@ void app_main(void)
     //xTaskCreate(tx_task, "uart_tx_task", 1024*2, NULL, configMAX_PRIORITIES-2, NULL);
     xTaskCreate(Dyson_data_process, "Dyson_data_task", 1024*5, NULL, configMAX_PRIORITIES-1, NULL);
     xTaskCreate(Blynk_led, "Blynk_Led", 1024*2, NULL, configMAX_PRIORITIES-4, NULL);
-    //xTaskCreate(DysonInfo_task, "DysonInfo_task", 1024*3, NULL, configMAX_PRIORITIES-3, NULL);
+    xTaskCreate(DysonInfo_task, "DysonInfo_task", 1024*3, NULL, configMAX_PRIORITIES-3, NULL);
     wifi_manager_start();
     
     

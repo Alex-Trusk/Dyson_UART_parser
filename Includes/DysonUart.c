@@ -11,7 +11,7 @@
   * @retval           Nothing.
 
   */
-void ParseUartStream(uint8_t *RX_buffer,size_t buf_size)
+uint8_t ParseUartStream(uint8_t *RX_buffer,size_t buf_size)
 {
     uint8_t isPacketStarted=0;
     uart_packet_t *newPacket=NULL;
@@ -39,13 +39,22 @@ void ParseUartStream(uint8_t *RX_buffer,size_t buf_size)
             #ifdef DYSON_TEST
                 printf("UART packet recieve started\n");
             #endif
-                newPacket= (uart_packet_t*)malloc(sizeof(uart_packet_t));
-                newPacket->packet_size=0;
-                isPacketStarted=1;
-                newPacket->ptr[newPacket->packet_size++]=RX_buffer[i];
+                if((newPacket= (uart_packet_t*)malloc(sizeof(uart_packet_t))))
+                {
+                    newPacket->packet_size=0;
+                    isPacketStarted=1;
+                    newPacket->ptr[newPacket->packet_size++]=RX_buffer[i];
+                }
+                else
+                {
+                    return 0;
+                }
             }
         }
     }
+    if(isPacketStarted)
+        free(newPacket);
+    return 1;
 }
 /**
   * @brief           Callback function. Called in ParseUartStream func when new uart packet has been created. 
@@ -77,6 +86,8 @@ uart_packet_t* UnstuffPacket(uart_packet_t* pack)
         printf("Unstuffing %u bytes, first byte i %u\n",pack->packet_size,*pack->ptr);
 #endif
     uart_packet_t *newPack=(uart_packet_t*)malloc(sizeof(uart_packet_t));
+    if(!newPack)
+        return NULL;
     newPack->packet_size=0;
     for(int i=1,j=0; i<pack->packet_size-1;i++)
     {
