@@ -1,5 +1,7 @@
 #include "DysonUart.h"
 #include "stdlib.h"
+#include "float.h"
+#include "math.h"
 #ifdef DYSON_TEST
     #include "stdio.h"
 #endif
@@ -316,4 +318,48 @@ uint8_t ParseDysonPacket(uart_packet_t *pack,Dyson_regs_t *regs)
     }
 
 return parseRes;
+}
+
+double GetTempFromReg(Dyson_regs_t *regs)
+{
+    if(regs)
+        return (roundl( regs->Temp_reg.Temp3*100))/100;;
+    return 0.0;
+}
+
+double GetHumFromReg(Dyson_regs_t *regs)
+{
+    if(regs)
+        return (roundl( regs->Temp_reg.Humidity*100))/100;
+    return 0.0;
+}
+
+uint8_t GetWorkStateFromReg(Dyson_regs_t *regs)
+{
+    if(regs)
+        if(regs->Flow_reg.Flow1>10.0f){
+            return 1;
+        }
+            return 0;
+}
+
+uint8_t GetVentLevelFromReg(Dyson_regs_t *regs)
+{
+    if(regs)
+        return (uint8_t)regs->Temp_reg.Vent_level;
+    return 0;
+}
+
+uint8_t GetPart10FromReg(Dyson_regs_t *regs)
+{
+    if(regs)
+        return regs->reg_2_0_8_0.Part_10_int;
+    return 0;
+}
+
+uint8_t GetPart25FromReg(Dyson_regs_t *regs)
+{
+    if(regs)
+        return regs->reg_2_0_8_0.Part_2_5_int;
+    return 0;
 }

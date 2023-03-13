@@ -215,4 +215,17 @@ uart_packet_t* UnstuffPacket(uart_packet_t* pack);
 uint8_t ParseDysonPacket(uart_packet_t *pack,Dyson_regs_t *regs);
 
 uint8_t ParseData(uint8_t *ptr, uint32_t reg);
+
+double GetTempFromReg(Dyson_regs_t *regs);
+
+double GetHumFromReg(Dyson_regs_t *regs);
+
+uint8_t GetWorkStateFromReg(Dyson_regs_t *regs);
+
+uint8_t GetVentLevelFromReg(Dyson_regs_t *regs);
+
+uint8_t GetPart10FromReg(Dyson_regs_t *regs);
+
+uint8_t GetPart25FromReg(Dyson_regs_t *regs);
+
 #endif
