@@ -1,11 +1,4 @@
-/* UART asynchronous example, that uses separate RX and TX tasks
 
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
@@ -19,7 +12,12 @@
 #include <esp_netif.h>
 #include "../components/esp32-wifi-manager/src/wifi_manager.h"
 #include "esp_heap_trace.h"
+
+#include "cJSON.h"
+#include "http_app.h"
+
 //#define DYSON_DEBUG  /* uncomment to print debug info*/
+
 
 
 static const int RX_BUF_SIZE = 1024;    //size of UART RX buffer
@@ -27,20 +25,13 @@ QueueHandle_t UartQueueHandle;
 #define TXD_PIN (GPIO_NUM_17)           //UART TX pin
 #define RXD_PIN (GPIO_NUM_16)           //UART RX pin
 #define CONFIG_BLINK_GPIO GPIO_NUM_2    //Onboard led pin
+
 #ifdef DYSON_DEBUG
     #define NUM_RECORDS 256
     static heap_trace_record_t trace_record[NUM_RECORDS];
 #endif
 
-
 Dyson_regs_t dyson_reg;      
-
-
-void malloc_failed_callback(size_t size, uint32_t caps, const char * function_name)
-{
-    esp_log_level_set("MALLOC FAILED", ESP_LOG_ERROR);
-    ESP_LOGI("MALLOC FAILED","Heap allocation failed. Unallocated size: %u, Capability: %lu, Function %s \n", size,caps,function_name);
-}
 
 void init(void) {
     const uart_config_t uart_config = {
@@ -56,7 +47,6 @@ void init(void) {
     uart_param_config(UART_NUM_1, &uart_config);
     uart_set_pin(UART_NUM_1, TXD_PIN, RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
     memset(&dyson_reg,0,sizeof(Dyson_regs_t));
-    heap_caps_register_failed_alloc_callback(malloc_failed_callback);
 #ifdef DYSON_DEBUG
     ESP_ERROR_CHECK(heap_trace_init_standalone(trace_record, NUM_RECORDS));
 #endif
@@ -89,7 +79,7 @@ static void tx_task(void *arg)
     }
 }
 
-/*
+/**
   * @brief            This task constantly reading data from UART pin in blocking mode
   */
 static void rx_task(void *arg)
@@ -160,10 +150,9 @@ static void Dyson_data_process(void *arg)
             }
         }
     }
-    
 }
 
-/*
+/**
   * @brief            This task controls onboard led
   */
 static void Blynk_led(void *arg)
@@ -184,7 +173,7 @@ static void Blynk_led(void *arg)
     }
 }
 
-/*
+/**
   * @brief            This task repeatedly prints values of dyson_reg using ESP loging
 */
 static void DysonInfo_task(void *arg)
@@ -205,74 +194,113 @@ static void DysonInfo_task(void *arg)
         heap_trace_stop();
         heap_trace_dump();
 #endif        
-       /*ESP_LOGI(DYSON_INFO_TAG,"Flow1= %u, Flow2= %u, Flow3= %u, Flow4= %u",dyson_reg.Flow_reg.Flow1, dyson_reg.Flow_reg.Flow2,
+       ESP_LOGD(DYSON_INFO_TAG,"Flow1= %u, Flow2= %u, Flow3= %u, Flow4= %u",dyson_reg.Flow_reg.Flow1, dyson_reg.Flow_reg.Flow2,
                 dyson_reg.Flow_reg.Flow3, dyson_reg.Flow_reg.Flow4);
 
-        ESP_LOGI(DYSON_INFO_TAG,"2_0_3_reg1= %0.2f, 2_0_3_reg2= %0.2f, 2_0_3_reg3= %0.2f, 2_0_3_reg4= %0.2f, 2_0_3_reg5= %0.2f",
+        ESP_LOGD(DYSON_INFO_TAG,"2_0_3_reg1= %0.2f, 2_0_3_reg2= %0.2f, 2_0_3_reg3= %0.2f, 2_0_3_reg4= %0.2f, 2_0_3_reg5= %0.2f",
                 dyson_reg.reg_2_0_3_0.Reg1,dyson_reg.reg_2_0_3_0.Reg2,dyson_reg.reg_2_0_3_0.Reg3,dyson_reg.reg_2_0_3_0.Reg4,
                 dyson_reg.reg_2_0_3_0.Reg5);
 
-        ESP_LOGI(DYSON_INFO_TAG,"2_0_5_reg1= %lu, 2_0_5_reg2= %lu, 2_0_5_reg3= %lu",
+        ESP_LOGD(DYSON_INFO_TAG,"2_0_5_reg1= %lu, 2_0_5_reg2= %lu, 2_0_5_reg3= %lu",
                 dyson_reg.reg_2_0_5_0.Reg1,dyson_reg.reg_2_0_5_0.Reg2,dyson_reg.reg_2_0_5_0.Reg3);
 
 
         ESP_LOGI(DYSON_INFO_TAG,"Part_2.5= %0.2f, Part_10= %0.2f, 2_0_7_reg3= %0.2f, 2_0_7_reg4= %0.2f, 2_0_7_reg5= %0.2f",
                 dyson_reg.reg_2_0_7_0.Part_2_5, dyson_reg.reg_2_0_7_0.Part_10, dyson_reg.reg_2_0_7_0.Reg3, dyson_reg.reg_2_0_7_0.Reg4,
                 dyson_reg.reg_2_0_7_0.Reg5);
-        ESP_LOGI(DYSON_INFO_TAG,"2_0_7_reg6= %0.2f, 2_0_7_reg7= %0.2f, 2_0_7_reg8= %0.2f, 2_0_7_reg9= %0.2f, 2_0_7_reg10= %0.2f",
+        ESP_LOGD(DYSON_INFO_TAG,"2_0_7_reg6= %0.2f, 2_0_7_reg7= %0.2f, 2_0_7_reg8= %0.2f, 2_0_7_reg9= %0.2f, 2_0_7_reg10= %0.2f",
                 dyson_reg.reg_2_0_7_0.Reg6, dyson_reg.reg_2_0_7_0.Reg7, dyson_reg.reg_2_0_7_0.Reg8, dyson_reg.reg_2_0_7_0.Reg9,
                 dyson_reg.reg_2_0_7_0.Reg10);
-        ESP_LOGI(DYSON_INFO_TAG,"2_0_7_reg11= %0.2f, 2_0_7_reg12= %0.2f, 2_0_7_reg13= %0.2f",dyson_reg.reg_2_0_7_0.Reg11, 
+        ESP_LOGD(DYSON_INFO_TAG,"2_0_7_reg11= %0.2f, 2_0_7_reg12= %0.2f, 2_0_7_reg13= %0.2f",dyson_reg.reg_2_0_7_0.Reg11, 
                 dyson_reg.reg_2_0_7_0.Reg12, dyson_reg.reg_2_0_7_0.Reg13);
 
-        ESP_LOGI(DYSON_INFO_TAG,"Part_2_5int= %u, 2_0_8_reg2= %u, 2_0_8_reg3= %u, 2_0_8_reg4= %u, 2_0_8_reg5= %u",
+        ESP_LOGD(DYSON_INFO_TAG,"Part_2_5int= %u, 2_0_8_reg2= %u, 2_0_8_reg3= %u, 2_0_8_reg4= %u, 2_0_8_reg5= %u",
                 dyson_reg.reg_2_0_8_0.Part_2_5_int, dyson_reg.reg_2_0_8_0.Reg2, dyson_reg.reg_2_0_8_0.Reg3, dyson_reg.reg_2_0_8_0.Reg4,
                 dyson_reg.reg_2_0_8_0.Reg5);
-        ESP_LOGI(DYSON_INFO_TAG,"2_0_8_reg6= %u, 2_0_8_reg7= %u, 2_0_8_reg8= %u, 2_0_8_reg9= %u, 2_0_8_reg10= %u",
+        ESP_LOGD(DYSON_INFO_TAG,"2_0_8_reg6= %u, 2_0_8_reg7= %u, 2_0_8_reg8= %u, 2_0_8_reg9= %u, 2_0_8_reg10= %u",
                 dyson_reg.reg_2_0_8_0.Reg6, dyson_reg.reg_2_0_8_0.Reg7, dyson_reg.reg_2_0_8_0.Reg8, dyson_reg.reg_2_0_8_0.Reg9,
                 dyson_reg.reg_2_0_8_0.Reg10);
-        ESP_LOGI(DYSON_INFO_TAG,"2_0_8_reg11= %u, 2_0_8_reg12= %u",dyson_reg.reg_2_0_8_0.Part_10_int, 
+        ESP_LOGD(DYSON_INFO_TAG,"2_0_8_reg11= %u, 2_0_8_reg12= %u",dyson_reg.reg_2_0_8_0.Part_10_int, 
                 dyson_reg.reg_2_0_8_0.Reg12);
 
-        ESP_LOGI(DYSON_INFO_TAG,"3_0_5_reg1= %0.2f, 3_0_5_reg2= %0.2f, 3_0_5_reg3= %0.2f, 3_0_5_reg4= %0.2f",
+        ESP_LOGD(DYSON_INFO_TAG,"3_0_5_reg1= %0.2f, 3_0_5_reg2= %0.2f, 3_0_5_reg3= %0.2f, 3_0_5_reg4= %0.2f",
                 dyson_reg.reg_3_0_5_0.Reg1, dyson_reg.reg_3_0_5_0.Reg2, dyson_reg.reg_3_0_5_0.Reg3, dyson_reg.reg_3_0_5_0.Reg4);
 
-        ESP_LOGI(DYSON_INFO_TAG,"3_0_6_reg1= %0.2f, 3_0_6_reg2= %0.2f, 3_0_6_reg3= %0.2f, 3_0_6_reg4= %0.2f, 3_0_6_reg5= %0.2f",
+        ESP_LOGD(DYSON_INFO_TAG,"3_0_6_reg1= %0.2f, 3_0_6_reg2= %0.2f, 3_0_6_reg3= %0.2f, 3_0_6_reg4= %0.2f, 3_0_6_reg5= %0.2f",
                 dyson_reg.reg_3_0_6_0.Reg1, dyson_reg.reg_3_0_6_0.Reg2, dyson_reg.reg_3_0_6_0.Reg3, dyson_reg.reg_3_0_6_0.Reg4,
                 dyson_reg.reg_3_0_6_0.Reg5);
 
-        ESP_LOGI(DYSON_INFO_TAG,"3_0_7_reg1= %0.2f, 3_0_7_reg2= %0.2f, 3_0_7_reg3= %0.2f, 3_0_7_reg4= %0.2f, 3_0_7_reg5= %0.2f",
+        ESP_LOGD(DYSON_INFO_TAG,"3_0_7_reg1= %0.2f, 3_0_7_reg2= %0.2f, 3_0_7_reg3= %0.2f, 3_0_7_reg4= %0.2f, 3_0_7_reg5= %0.2f",
                 dyson_reg.reg_3_0_7_0.Reg1, dyson_reg.reg_3_0_7_0.Reg2, dyson_reg.reg_3_0_7_0.Reg3, dyson_reg.reg_3_0_7_0.Reg4,
                 dyson_reg.reg_3_0_7_0.Reg5);
 
-        ESP_LOGI(DYSON_INFO_TAG,"3_0_8_reg1= %0.2f, 3_0_8_reg2= %0.2f, 3_0_8_reg3= %0.2f, 3_0_8_reg4= %0.2f",
+        ESP_LOGD(DYSON_INFO_TAG,"3_0_8_reg1= %0.2f, 3_0_8_reg2= %0.2f, 3_0_8_reg3= %0.2f, 3_0_8_reg4= %0.2f",
                 dyson_reg.reg_3_0_8_0.Reg1, dyson_reg.reg_3_0_8_0.Reg2, dyson_reg.reg_3_0_8_0.Reg3, dyson_reg.reg_3_0_8_0.Reg4);
         
-        ESP_LOGI(DYSON_INFO_TAG,"3_0_9_reg1= %0.2f, 3_0_9_reg2= %0.2f, 3_0_9_reg3= %0.2f, 3_0_9_reg4= %0.2f, 3_0_9_reg5= %0.2f, 3_0_9_reg6= %0.2f",
+        ESP_LOGD(DYSON_INFO_TAG,"3_0_9_reg1= %0.2f, 3_0_9_reg2= %0.2f, 3_0_9_reg3= %0.2f, 3_0_9_reg4= %0.2f, 3_0_9_reg5= %0.2f, 3_0_9_reg6= %0.2f",
                 dyson_reg.reg_3_0_9_0.Reg1, dyson_reg.reg_3_0_9_0.Reg2, dyson_reg.reg_3_0_9_0.Reg3, dyson_reg.reg_3_0_9_0.Reg4,
                 dyson_reg.reg_3_0_9_0.Reg5, dyson_reg.reg_3_0_9_0.Reg6);
 
-        ESP_LOGI(DYSON_INFO_TAG,"3_0_10_reg1= %0.2f, 3_0_10_reg2= %0.2f, 3_0_10_reg3= %0.2f, 3_0_10_reg4= %0.2f, 3_0_10_Up_time= %0.2f",
+        ESP_LOGD(DYSON_INFO_TAG,"3_0_10_reg1= %0.2f, 3_0_10_reg2= %0.2f, 3_0_10_reg3= %0.2f, 3_0_10_reg4= %0.2f, 3_0_10_Up_time= %0.2f",
                 dyson_reg.reg_3_0_10_0.Reg1, dyson_reg.reg_3_0_10_0.Reg2, dyson_reg.reg_3_0_10_0.Reg3, dyson_reg.reg_3_0_10_0.Reg4,
                 dyson_reg.reg_3_0_10_0.Up_time);
         
-        ESP_LOGI(DYSON_INFO_TAG,"2_0_2_Reg1= %u, 2_0_2_Reg2= %u, 2_0_2_Reg3= %u, 2_0_2_Reg4= %u",dyson_reg.reg_2_0_2_0.Reg1, dyson_reg.reg_2_0_2_0.Reg2,
+        ESP_LOGD(DYSON_INFO_TAG,"2_0_2_Reg1= %u, 2_0_2_Reg2= %u, 2_0_2_Reg3= %u, 2_0_2_Reg4= %u",dyson_reg.reg_2_0_2_0.Reg1, dyson_reg.reg_2_0_2_0.Reg2,
                 dyson_reg.reg_2_0_2_0.Reg3, dyson_reg.reg_2_0_2_0.Reg4);
 
-        ESP_LOGI(DYSON_INFO_TAG,"2_0_6_Reg1= %u, 2_0_6_Reg2= %u",dyson_reg.reg_2_0_6_0.Reg1, dyson_reg.reg_2_0_6_0.Reg2);
+        ESP_LOGD(DYSON_INFO_TAG,"2_0_6_Reg1= %u, 2_0_6_Reg2= %u",dyson_reg.reg_2_0_6_0.Reg1, dyson_reg.reg_2_0_6_0.Reg2);
 
-        ESP_LOGI(DYSON_INFO_TAG,"2_0_10_reg1= %0.2f, 2_0_10_reg2= %0.2f, 2_0_10_reg3= %0.2f, 2_0_10_reg4= %0.2f, 2_0_10_reg5= %0.2f",
+        ESP_LOGD(DYSON_INFO_TAG,"2_0_10_reg1= %0.2f, 2_0_10_reg2= %0.2f, 2_0_10_reg3= %0.2f, 2_0_10_reg4= %0.2f, 2_0_10_reg5= %0.2f",
                 dyson_reg.reg_2_0_10_0.Reg1, dyson_reg.reg_2_0_10_0.Reg2, dyson_reg.reg_2_0_10_0.Reg3, dyson_reg.reg_2_0_10_0.Reg4,
                 dyson_reg.reg_2_0_10_0.Reg5);
-        ESP_LOGI(DYSON_INFO_TAG,"2_0_10_reg6= %0.2f, 2_0_10_reg7= %0.2f",dyson_reg.reg_2_0_10_0.Reg6, dyson_reg.reg_2_0_10_0.Reg7);
-*/
+        ESP_LOGD(DYSON_INFO_TAG,"2_0_10_reg6= %0.2f, 2_0_10_reg7= %0.2f",dyson_reg.reg_2_0_10_0.Reg6, dyson_reg.reg_2_0_10_0.Reg7);
+
         vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
+
+/**
+ * @brief Function is called after recieving GET request by HTTP server that is started by WifiManager
+ * 
+ * @param req Pointer to httpd_req_t object
+ * @return esp_err_t type
+ */
+static esp_err_t sensors_get_handler(httpd_req_t *req)
+{
+	static const char *TAG = "REQUEST HANDLER";
+    esp_log_level_set(TAG, ESP_LOG_INFO);
+    if(strcmp(req->uri, "/api/states/sensors") == 0)
+    {
+
+		ESP_LOGI(TAG, "New GET request. Serving page /sensors");
+        cJSON* sensor = cJSON_CreateObject();
+        cJSON_AddStringToObject(sensor, "dev_name", "Dyson ESP Purifier");
+        cJSON_AddNumberToObject(sensor, "state", GetWorkStateFromReg(&dyson_reg));
+        cJSON_AddNumberToObject(sensor, "temperature", GetTempFromReg(&dyson_reg));
+        cJSON_AddNumberToObject(sensor, "humidity", GetHumFromReg(&dyson_reg));
+        cJSON_AddNumberToObject(sensor, "vent_level", GetVentLevelFromReg(&dyson_reg));
+        cJSON_AddNumberToObject(sensor, "pm25_level", GetPart25FromReg(&dyson_reg));
+        cJSON_AddNumberToObject(sensor, "pm10_level", GetPart10FromReg(&dyson_reg));
+     
+        // Serialize JSON payload and send to Home Assistant
+        char* output = cJSON_Print(sensor);
+        ESP_LOGD(TAG, "JSON = %s",output);
+		httpd_resp_set_status(req, "200 OK");
+		httpd_resp_set_type(req, "application/json");
+		httpd_resp_send(req, output, strlen(output));
+	}
+	else
+    {
+		/* send a 404 otherwise */
+		httpd_resp_send_404(req);
+	}
+
+	return ESP_OK;
+}
+
 void app_main(void)
 {
     init();
-    
     ESP_LOGI("APP_MAIN", "Device Started!");
     UartQueueHandle=xQueueCreate(30,sizeof(uart_packet_t*));
     ESP_LOGI("QUEUE_TAG", "Queue created!");
@@ -282,11 +310,15 @@ void app_main(void)
     xTaskCreate(Blynk_led, "Blynk_Led", 1024*2, NULL, configMAX_PRIORITIES-4, NULL);
     xTaskCreate(DysonInfo_task, "DysonInfo_task", 1024*3, NULL, configMAX_PRIORITIES-3, NULL);
     wifi_manager_start();
-    
+    http_app_set_handler_hook(HTTP_GET, &sensors_get_handler);
     
 }
 
-
+/**
+ * @brief This is an reimplementation of a weak PacketReadyCallback function. Called after new UART packet is received
+ *          
+ * @param newPacket Pointer to uart_packet_t object, containing received data
+ */
 void PacketReadyCallback(uart_packet_t * newPacket)
 {
     uart_packet_t *flush_buf=NULL;
@@ -300,7 +332,6 @@ void PacketReadyCallback(uart_packet_t * newPacket)
     {
         xQueueReceive(UartQueueHandle,flush_buf,0);
         free(flush_buf);
-
     }
     xQueueSend(UartQueueHandle,&newPacket,0);
 }
