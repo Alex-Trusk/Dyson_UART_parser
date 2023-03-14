@@ -75,3 +75,5 @@ wifi_manager/doc/
 
 # Visual Studio Code
 .vscode/
+sdkconfig*
+dependencies.lock
