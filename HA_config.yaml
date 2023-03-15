@@ -1,0 +1,49 @@
+#Add the following lines to the end of configuration.yaml
+sensor:
+  - platform: rest
+    name: DysonDevice
+    json_attributes:
+    - state
+    - temperature
+    - humidity
+    - vent_level
+    - pm25_level
+    - pm10_level
+    resource: http://<ваш esp32 IP адрес>/api/states/sensors
+    value_template: "{{ value_json}}"
+  - platform: template
+    sensors:
+      state:
+        friendly_name: "On/off State"
+        unique_id: "Dyson_state"
+        value_template: "{{'On' if state_attr('sensor.dysondevice', 'state')|int>0 else 'Off'}}"
+      temperature:
+        friendly_name: "Temperature"
+        unique_id: "Dyson_temp"
+        value_template: "{{ state_attr('sensor.dysondevice', 'temperature') }}"
+        device_class: temperature
+        unit_of_measurement: " C"
+      humidity:
+        unique_id: "Dyson_hum"
+        friendly_name: "Humidity"
+        value_template: "{{ state_attr('sensor.dysondevice', 'humidity') }}"
+        device_class: humidity
+        unit_of_measurement: "%"
+      fan_level:
+        unique_id: "Dyson fan level"
+        friendly_name: "Fan level"
+        value_template: "{{ state_attr('sensor.dysondevice', 'vent_level') }}"
+        device_class: wind_speed
+        unit_of_measurement: " lv"
+      pm25_level:
+        unique_id: "Dyson pm25 level"
+        friendly_name: "pm2.5 level"
+        value_template: "{{ state_attr('sensor.dysondevice', 'pm25_level') }}"
+        device_class: pm25
+        unit_of_measurement: "µg/m³"
+      pm10_level:
+        unique_id: "Dyson pm10 level"
+        friendly_name: "pm10 level"
+        value_template: "{{ state_attr('sensor.dysondevice', 'pm10_level') }}"
+        device_class: pm10
+        unit_of_measurement: "µg/m³"
