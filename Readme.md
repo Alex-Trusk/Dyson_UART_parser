@@ -8,7 +8,7 @@ Dyson Air Purifier Home Assistant Integration
 <div align="center"> <img src="https://dyson-h.assetsadobe2.com/is/image/content/dam/dyson/images/products/hero/369806-01.png?$responsive$&cropPathE=desktop&fit=stretch,1&wid=200"></div>
 
 Having a Dyson Purifier like TP07 **without** Wi-Fi module installed? Willing to integrate it into your Home Assistant? This project can help you. Dyson TP07 has a 4-pin connector, installed on the mainboard, that is made for diagnostics purposes. It can be easily accessed using only a torx screwdriver. The connector provides various data transferring via UART protocol.
-Dyson UART Parcer reads UART data retrieving all valuable information an providing an interface to Home Assistant server.
+Dyson UART Parser reads UART data retrieving all valuable information an providing an interface to Home Assistant server.
 ## Getting started
 ### Hardware requirements
 * ESP32 | ESP8266 module
@@ -43,3 +43,6 @@ idf.py build flash monitor
 7. Create new Entity module in HomeAssistant dashboard
 
 ![HAimg](https://github.com/HeatseekerXXX/Dyson_UART_parser/blob/master/Img/HA.png?raw=true)
+
+## License
+Distributed under the MIT License. See [LICENSE](https://github.com/HeatseekerXXX/Dyson_UART_parser/blob/master/LICENSE.md) for more information.
