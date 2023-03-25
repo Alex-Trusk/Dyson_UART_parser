@@ -1,4 +1,4 @@
-# Dyson UART Parcer
+# Dyson UART Parser
 Dyson Air Purifier Home Assistant Integration
 
 ![Downloads](https://img.shields.io/github/downloads/HeatseekerXXX/Dyson_UART_parser/total) ![Contributors](https://img.shields.io/github/contributors/HeatseekerXXX/Dyson_UART_parser?color=dark-green) ![Issues](https://img.shields.io/github/issues/HeatseekerXXX/Dyson_UART_parser) ![License](https://img.shields.io/github/license/HeatseekerXXX/Dyson_UART_parser)
