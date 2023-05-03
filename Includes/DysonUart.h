@@ -17,6 +17,8 @@
 #define STUFF_BYTE_1 0xDB
 #define STUFF_BYTE_2 0xDE
 #define STUFF_BYTE_3 0xDD
+#define MAX_FAN_LEVEL 10
+#define MIN_FAN_LEVEL 1
 
 /**
   * @brief Structure to store received UART packet data
@@ -25,7 +27,7 @@ typedef struct uart_packet_t
 {
     uint8_t ptr[256];       // @brief Variable to store uart packet data
     size_t packet_size;     // @brief Size of ptr in bytes
-    float time;             // @brief Time of recieved packets, seconds from the device start (optional)
+    float time;             // @brief Time of received packets, seconds from the device start (optional)
         
 }uart_packet_t;
 
@@ -227,5 +229,8 @@ uint8_t GetVentLevelFromReg(Dyson_regs_t *regs);
 uint8_t GetPart10FromReg(Dyson_regs_t *regs);
 
 uint8_t GetPart25FromReg(Dyson_regs_t *regs);
+
+void SetWorkStateToReg(Dyson_regs_t *regs, uint8_t newState);
+
 
 #endif

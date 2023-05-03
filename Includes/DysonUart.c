@@ -26,7 +26,7 @@ uint8_t ParseUartStream(uint8_t *RX_buffer,size_t buf_size)
             if(RX_buffer[i]==START_BYTE)
             {
             #ifdef DYSON_TEST
-                printf("UART packet recieve finished\n");
+                printf("UART packet receive finished\n");
             #endif
                 PacketReadyCallback(newPacket);
                 isPacketStarted=0;
@@ -39,7 +39,7 @@ uint8_t ParseUartStream(uint8_t *RX_buffer,size_t buf_size)
                 if(RX_buffer[i+1]==18 && i!=buf_size-1)
                     i++;
             #ifdef DYSON_TEST
-                printf("UART packet recieve started\n");
+                printf("UART packet receive started\n");
             #endif
                 if((newPacket= (uart_packet_t*)malloc(sizeof(uart_packet_t))))
                 {
@@ -115,7 +115,7 @@ uart_packet_t* UnstuffPacket(uart_packet_t* pack)
   * @param  ptr      Pointer to buffer containing data. Format: |var SIZE (1 byte) | N bytes in packet (1 byte) | 1..N vars of SIZE type
   * @param  reg      Pointer to Dyson_regs_t struct object
   * @retval          0 - unknown format
-  * @retval          1 - succesfully parsed
+  * @retval          1 - successfully parsed
   */
 uint8_t ParseData(uint8_t *ptr, uint32_t reg)
 {
@@ -193,7 +193,7 @@ uint8_t ParseData(uint8_t *ptr, uint32_t reg)
   * @param  ptr      Pointer to uart_packet_t object
   * @param  reg      Pointer to Dyson_regs_t object 
   * @retval          0 - unknown format
-  * @retval          1 - succesfully parsed
+  * @retval          1 - successfully parsed
   * @retval          2 - CRC fail
   * @retval          3 - input variable pointer is NULL 
   */
@@ -362,4 +362,13 @@ uint8_t GetPart25FromReg(Dyson_regs_t *regs)
     if(regs)
         return regs->reg_2_0_8_0.Part_2_5_int;
     return 0;
+}
+
+void SetWorkStateToReg(Dyson_regs_t *regs, uint8_t newState)
+{
+    if(newState>0)
+        regs->Flow_reg.Flow1=20.0f;
+    else
+        regs->Flow_reg.Flow1=0.0f;
+    
 }
