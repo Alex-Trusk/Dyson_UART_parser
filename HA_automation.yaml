@@ -1,0 +1,87 @@
+#Add the following lines to the end of automations.yaml
+- id: '233222334333'
+  alias: Update Sensor
+  trigger:
+    platform: state
+    entity_id: switch.dysons_witch
+  action:
+  - service: homeassistant.update_entity
+    target:
+      entity_id:
+      - sensor.state
+      - sensor.fan_level
+      - sensor.dysondevice
+    delay: 1
+- id: '111222344443'
+  alias: Fan level change
+  trigger:
+  - platform: state
+    entity_id: input_number.number1
+  condition: []
+  action:
+  - service: rest_command.fan_level_change
+    data:
+      fan_level: '{{ states(''input_number.number1'') | int }}'
+  mode: single
+- id: '1682662058414'
+  alias: Fan Level Slider Update
+  description: ''
+  trigger:
+  - platform: state
+    entity_id:
+    - sensor.fan_level
+  condition: []
+  action:
+  - service: input_number.set_value
+    data:
+      value: '{{states(''sensor.fan_level'')|int}}'
+    target:
+      entity_id: input_number.number1
+  mode: single
+- id: '1682704871943'
+  alias: Flow direction change
+  description: ''
+  trigger:
+  - platform: state
+    entity_id:
+    - input_button.direction_btn
+  condition: []
+  action:
+  - service: rest_command.flow_direction
+    data: {}
+  mode: single
+- id: '168270487242'
+  alias: Night mode change
+  description: ''
+  trigger:
+  - platform: state
+    entity_id:
+    - input_button.night_btn
+  condition: []
+  action:
+  - service: rest_command.night_mode
+    data: {}
+  mode: single
+- id: '1682704872422'
+  alias: Rotation change
+  description: ''
+  trigger:
+  - platform: state
+    entity_id:
+    - input_button.rotation_btn
+  condition: []
+  action:
+  - service: rest_command.rotation_mode
+    data: {}
+  mode: single
+- id: '168270487287422'
+  alias: Set Led Mode
+  trigger:
+  - platform: state
+    entity_id: input_select.led_mode
+  action:
+  - service: rest_command.led_change
+    data:
+      led_mode: '{% if states(''input_select.led_mode'') == "Off" %}0 {% else %} {%
+        if states(''input_select.led_mode'') == "On" %}1 {% else %} {% if states(''input_select.led_mode'')
+        == "Blink" %}2 {% endif %} {% endif %} {% endif %}'

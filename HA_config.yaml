@@ -1,4 +1,88 @@
 #Add the following lines to the end of configuration.yaml
+input_text:
+  post_url:
+    initial: "http://<ESP32_IP_ADDR>/api/controls"
+rest_command:
+  fan_level_change:
+    url: "{{states('input_text.post_url')}}"
+    method: POST
+    content_type: 'application/json'
+    payload: '{"set_fan": {{ fan_level }}}'
+  auto_mode_on:
+    url: "{{states('input_text.post_url')}}"
+    method: POST
+    content_type: 'application/json'
+    payload: '{"attributes": "auto_mode_on"}'
+  auto_mode_off:
+    url: "{{states('input_text.post_url')}}"
+    method: POST
+    content_type: 'application/json'
+    payload: '{"attributes": "auto_mode_off"}'
+  night_mode:
+    url: "{{states('input_text.post_url')}}"
+    method: POST
+    content_type: 'application/json'
+    payload: '{"attributes": "night_mode"}'
+  flow_direction:
+    url: "{{states('input_text.post_url')}}"
+    method: POST
+    content_type: 'application/json'
+    payload: '{"attributes": "direction"}'
+  rotation_mode:
+    url: "{{states('input_text.post_url')}}"
+    method: POST
+    content_type: 'application/json'
+    payload: '{"attributes": "sw_rotation"}'
+  info_change:
+    url: "{{states('input_text.post_url')}}"
+    method: POST
+    content_type: 'application/json'
+    payload: '{"attributes": "info"}'
+  led_change:
+    url: "{{states('input_text.post_url')}}"
+    method: POST
+    content_type: 'application/json'
+    payload: '{"set_led_mode": {{ led_mode }}}'
+#my sensor
+switch:
+  - platform: rest
+    resource: http://<ESP32_IP_ADDR>/api/controls
+    method: post
+    name: Dysonswitch
+    body_on: >
+      {% if is_state('switch.dysonswitch','off') %}
+      {"attributes": "on_off"}
+      {% endif %}
+    body_off: >
+      {% if is_state('switch.dysonswitch','on') %}
+      {"attributes": "on_off"}
+      {% endif %}
+    state_resource: http://<ESP32_IP_ADDR>/api/states/sensors
+    is_on_template: >-
+      {% if value_json.state == 1 %} True
+      {% else %} False
+      {% endif %}
+    scan_interval: 5
+  - platform: template
+    switches:
+      dysons_witch:
+        friendly_name: "Air purifier power"
+        value_template: "{{is_state('switch.dysonswitch','on')}}"
+        turn_on:
+          service: switch.turn_on
+          target:
+            entity_id: switch.dysonswitch
+        turn_off:
+          service: switch.turn_off
+          target:
+            entity_id: switch.dysonswitch
+      dyson_auto_mode:
+        friendly_name: "Auto mode"
+        turn_on:
+          service: rest_command.auto_mode_on
+        turn_off:
+          service: rest_command.auto_mode_off
+
 sensor:
   - platform: rest
     name: DysonDevice
@@ -9,8 +93,9 @@ sensor:
     - vent_level
     - pm25_level
     - pm10_level
-    resource: http://<ваш esp32 IP адрес>/api/states/sensors
+    resource: http://<ESP32_IP_ADDR>/api/states/sensors
     value_template: "{{ value_json}}"
+    scan_interval: 5
   - platform: template
     sensors:
       state:
@@ -22,7 +107,7 @@ sensor:
         unique_id: "Dyson_temp"
         value_template: "{{ state_attr('sensor.dysondevice', 'temperature') }}"
         device_class: temperature
-        unit_of_measurement: " C"
+        unit_of_measurement: "°C"
       humidity:
         unique_id: "Dyson_hum"
         friendly_name: "Humidity"
@@ -47,3 +132,31 @@ sensor:
         value_template: "{{ state_attr('sensor.dysondevice', 'pm10_level') }}"
         device_class: pm10
         unit_of_measurement: "µg/m³"
+
+input_number:
+  number1:
+    name: "Fan level"
+    initial: 1
+    min: 1
+    max: 10
+    step: 1
+input_button:
+  direction_btn:
+    name: Flow direction
+    icon: mdi:waves-arrow-right
+  night_btn:
+    name: Night mode
+    icon: mdi:weather-night
+  rotation_btn:
+    name: Rotation
+    icon: mdi:axis-z-rotate-counterclockwise
+
+input_select:
+  led_mode:
+    name: Onboard Led Mode
+    options:
+      - "Off"
+      - "On"
+      - "Blink"
+    initial: "Blink"
+    icon: mdi:led-on
