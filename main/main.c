@@ -508,6 +508,17 @@ static void IR_port_control_task(void *arg)
     }
 }
 
+void cb_connection_ok(void *pvParameter)
+{
+    uint8_t newLedState=0;
+    xQueueSend(LedQueueHandle,(uint8_t*)&(newLedState),0);
+}
+
+void cb_disconnected(void *pvParameter)
+{
+    uint8_t newLedState=2;
+    xQueueSend(LedQueueHandle,(uint8_t*)&(newLedState),0);
+}
 
 void app_main(void)
 {
@@ -526,7 +537,10 @@ void app_main(void)
     xTaskCreate(DysonInfo_task, "DysonInfo_task", 1024*3, NULL, configMAX_PRIORITIES-3, NULL);
     xTaskCreate(IR_port_control_task, "IR_control_task", 1024*3, NULL, configMAX_PRIORITIES-3, NULL);
  /*** End of FreeRTOS tasks section***/
+
     wifi_manager_start();                                           //Wifi Manager captive portal start
+    wifi_manager_set_callback(WM_EVENT_STA_GOT_IP, &cb_connection_ok);
+    wifi_manager_set_callback(WM_EVENT_STA_DISCONNECTED , &cb_disconnected);
     http_app_set_handler_hook(HTTP_GET, &sensors_get_handler);      //Setting control func for all incoming GET requests
     http_app_set_handler_hook(HTTP_POST, &sensors_post_handler);    //Setting control func for all incoming POST requests
 
