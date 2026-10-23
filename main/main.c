@@ -531,7 +531,7 @@ void app_main(void)
 /*** End of FreeRTOS queue section***/
     ESP_LOGI("QUEUE_TAG", "Queue created!");
 /*** FreeRTOS tasks section***/
-    xTaskCreate(rx_task, "uart_rx_task", 1024*2, NULL, configMAX_PRIORITIES, NULL);
+    xTaskCreate(rx_task, "uart_rx_task", 1024*2, NULL, configMAX_PRIORITIES-1, NULL);  // MAX itself trips a FreeRTOS assert on IDF 5
     xTaskCreate(Dyson_data_process, "Dyson_data_task", 1024*5, NULL, configMAX_PRIORITIES-1, NULL);
     xTaskCreate(Blynk_led, "Blynk_Led", 1024*2, NULL, configMAX_PRIORITIES-4, NULL);
     xTaskCreate(DysonInfo_task, "DysonInfo_task", 1024*3, NULL, configMAX_PRIORITIES-3, NULL);

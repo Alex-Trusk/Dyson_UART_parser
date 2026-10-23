@@ -1,0 +1,3 @@
+dependencies:
+  # ESP-IDF 5 moved mdns out of the core; esp32-wifi-manager still requires it.
+  espressif/mdns: "^1.8"
